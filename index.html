@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synchronisation &amp; Atomics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-card: #0d1117;
+            --bg-code: #161b22;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #76B900;
+            --accent-dim: #76B90044;
+            --accent-glow: #76B90033;
+            --border: #21262d;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --font-body: 'Inter', sans-serif;
+            --max-width: 900px;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 17px;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        /* ── Header ── */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .hero > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .series-label {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 .accent {
+            color: var(--accent);
+        }
+
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 2rem;
+        }
+
+        /* ── Tag Pills ── */
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .tag {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+            white-space: nowrap;
+        }
+
+        /* ── Pipeline Flow Bar ── */
+        .pipeline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+            max-width: var(--max-width);
+        }
+
+        .pipeline-step {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .pipeline-arrow {
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        /* ── Slides ── */
+        .slide {
+            min-height: 100vh;
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .slide-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--accent-dim);
+            position: absolute;
+            top: 2rem;
+            right: 1.5rem;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .slide h2 {
+            font-family: var(--font-display);
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            line-height: 1.25;
+        }
+
+        .slide h3 {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .slide p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .slide p strong {
+            color: var(--text-primary);
+        }
+
+        .slide ul, .slide ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .slide li {
+            margin-bottom: 0.4rem;
+        }
+
+        .slide li strong {
+            color: var(--text-primary);
+        }
+
+        /* ── Code Blocks ── */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 1.25rem 0;
+            overflow: hidden;
+        }
+
+        .code-header {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            background: rgba(118, 185, 0, 0.08);
+            padding: 0.4rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .code-block pre {
+            margin: 0;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #c9d1d9;
+        }
+
+        /* Syntax highlighting (manual) */
+        .kw { color: #ff7b72; }
+        .fn { color: #d2a8ff; }
+        .str { color: #a5d6ff; }
+        .cm { color: #8b949e; font-style: italic; }
+        .num { color: #79c0ff; }
+        .type { color: #ffa657; }
+        .dir { color: #ff7b72; }
+        .mac { color: #ffa657; }
+
+        /* ── Tables ── */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: var(--bg-code);
+            color: var(--accent);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-display);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:nth-child(even) td {
+            background: rgba(13, 17, 23, 0.5);
+        }
+
+        /* ── Diagrams ── */
+        .diagram-flow {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-box {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .diagram-box.accent {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(118, 185, 0, 0.08);
+        }
+
+        .diagram-box.dim {
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+
+        .diagram-arrow {
+            color: var(--accent);
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        /* Vertical flow diagrams */
+        .diagram-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-vertical .diagram-arrow {
+            font-size: 1.1rem;
+        }
+
+        /* Nested hierarchy diagram */
+        .hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .hierarchy-level {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .hierarchy-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+            text-align: right;
+        }
+
+        .hierarchy-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .hierarchy-item {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .hierarchy-item.accent {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(118, 185, 0, 0.08);
+        }
+
+        /* Grid diagram */
+        .diagram-grid {
+            display: grid;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-grid.cols-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .diagram-grid.cols-3 {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .diagram-panel {
+            padding: 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .diagram-panel.accent-border {
+            border-left: 3px solid var(--accent);
+        }
+
+        .diagram-panel h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .diagram-panel p, .diagram-panel ul {
+            font-size: 0.85rem;
+        }
+
+        /* ── Callout Boxes ── */
+        .callout {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+        }
+
+        .callout p {
+            margin-bottom: 0;
+        }
+
+        .callout .callout-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.3rem;
+        }
+
+        /* ── Warp Diagram ── */
+        .warp-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 3px;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .warp-thread {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 0.55rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-secondary);
+        }
+
+        .warp-thread.active {
+            background: rgba(118, 185, 0, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .warp-thread.diverged {
+            background: rgba(255, 123, 114, 0.12);
+            border-color: #ff7b72;
+            color: #ff7b72;
+        }
+
+        /* ── Contents list ── */
+        .contents-list {
+            list-style: none;
+            padding-left: 0;
+            counter-reset: contents;
+        }
+
+        .contents-list li {
+            counter-increment: contents;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .contents-list li:last-child {
+            border-bottom: none;
+        }
+
+        .contents-list li::before {
+            content: counter(contents, decimal-leading-zero);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 2rem;
+        }
+
+        .contents-list a {
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .contents-list a:hover {
+            color: var(--accent);
+        }
+
+        /* ── Tree Reduction Diagram ── */
+        .tree-level {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 0.3rem 0;
+        }
+
+        .tree-node {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            width: 3.5rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .tree-node.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(118, 185, 0, 0.08);
+        }
+
+        .tree-node.result {
+            border-color: var(--accent);
+            color: var(--bg-primary);
+            background: var(--accent);
+            font-weight: 700;
+        }
+
+        .tree-connector {
+            text-align: center;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--accent);
+            margin: 0.1rem 0;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .slide {
+                padding: 3rem 1rem;
+                min-height: auto;
+            }
+
+            .slide-number {
+                font-size: 3rem;
+                top: 1.5rem;
+                right: 1rem;
+            }
+
+            .slide h2 {
+                font-size: 1.5rem;
+            }
+
+            .diagram-grid.cols-2,
+            .diagram-grid.cols-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .warp-grid {
+                grid-template-columns: repeat(8, 1fr);
+            }
+
+            .pipeline {
+                gap: 0.15rem;
+            }
+
+            .pipeline-step {
+                font-size: 0.6rem;
+                padding: 0.2rem 0.4rem;
+            }
+
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+
+            table {
+                font-size: 0.78rem;
+            }
+
+            .tree-node {
+                width: 2.5rem;
+                font-size: 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ HERO ════════════════════════════════════════════ -->
+<header class="hero">
+    <div class="series-label">CUDA Programming Series — Tutorial 06</div>
+    <h1>Synchronisation &amp; <span class="accent">Atomics</span></h1>
+    <p class="subtitle">__syncthreads(), warp-level primitives, atomic operations, race conditions, and parallel reduction patterns.</p>
+
+    <div class="tags">
+        <span class="tag">CUDA</span>
+        <span class="tag">Synchronisation</span>
+        <span class="tag">Atomics</span>
+        <span class="tag">Reduction</span>
+        <span class="tag">Warps</span>
+        <span class="tag">Cooperative Groups</span>
+    </div>
+
+    <div class="pipeline">
+        <span class="pipeline-step">Why Sync</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">__syncthreads</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Warp Primitives</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Atomics</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Reduction</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Histogram</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Coop Groups</span>
+    </div>
+</header>
+
+<!-- ═══════════════════════════════ SLIDE 00 — Contents ═══════════════════════════════ -->
+<section class="slide" id="slide-00">
+    <div class="slide-number">00</div>
+    <h2>Topics We'll Cover</h2>
+    <p>This tutorial explores how CUDA threads coordinate their work. We cover barriers, warp-level intrinsics, atomic operations, and put them all together with parallel reduction and histogram patterns.</p>
+    <ul class="contents-list">
+        <li><a href="#slide-01">Why Synchronisation Matters</a></li>
+        <li><a href="#slide-02">__syncthreads() — Block-Level Barrier</a></li>
+        <li><a href="#slide-03">Warp-Level Primitives</a></li>
+        <li><a href="#slide-04">Atomic Operations</a></li>
+        <li><a href="#slide-05">Parallel Reduction — Step by Step</a></li>
+        <li><a href="#slide-06">Histogram Example</a></li>
+        <li><a href="#slide-07">Cooperative Groups (CUDA 9+)</a></li>
+        <li><a href="#slide-08">Summary &amp; Next Steps</a></li>
+    </ul>
+    <div class="callout">
+        <div class="callout-label">Prerequisites</div>
+        <p>Tutorials 01&ndash;04 (GPU Architecture, First Kernel, Thread Hierarchy, Memory Model). You should be comfortable writing kernels that use shared memory and understand the thread/block/grid hierarchy.</p>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ SLIDE 01 — Why Synchronisation Matters ═══════════════════════════════ -->
+<section class="slide" id="slide-01">
+    <div class="slide-number">01</div>
+    <h2>Why Synchronisation Matters</h2>
+
+    <p>CUDA launches thousands of threads that execute <strong>concurrently</strong>. Without coordination, threads reading and writing shared data produce <strong>data races</strong> &mdash; the results depend on unpredictable execution order.</p>
+
+    <h3>A Simple Data Race</h3>
+    <p>Consider two threads both trying to increment a shared counter:</p>
+
+    <div class="diagram-vertical">
+        <div style="display: flex; gap: 2rem; width: 100%; justify-content: center;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem;">
+                <div class="diagram-box" style="font-size: 0.75rem;">Thread A</div>
+                <div class="diagram-box dim" style="font-size: 0.7rem;">read counter = 5</div>
+                <div class="diagram-box dim" style="font-size: 0.7rem;">compute 5 + 1 = 6</div>
+                <div class="diagram-box dim" style="font-size: 0.7rem;">write counter = 6</div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem;">
+                <div class="diagram-box" style="font-size: 0.75rem;">Thread B</div>
+                <div class="diagram-box dim" style="font-size: 0.7rem;">read counter = 5</div>
+                <div class="diagram-box dim" style="font-size: 0.7rem;">compute 5 + 1 = 6</div>
+                <div class="diagram-box dim" style="font-size: 0.7rem;">write counter = 6</div>
+            </div>
+        </div>
+        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: #ff7b72; margin-top: 0.5rem;">Expected: 7 &nbsp;&nbsp; Actual: 6 &nbsp;&nbsp; &mdash; Lost update!</div>
+    </div>
+
+    <h3>Three Consequences of Unsynchronised Access</h3>
+    <div class="diagram-grid cols-3">
+        <div class="diagram-panel accent-border">
+            <h4>Data Races</h4>
+            <p>Multiple threads read/write the same location without ordering. The final value is <strong>undefined</strong>.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Incorrect Results</h4>
+            <p>Lost updates, partial writes, or stale reads lead to wrong answers that may look plausible.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Non-Determinism</h4>
+            <p>Results change between runs. The bug may appear intermittently, making debugging extremely difficult.</p>
+        </div>
+    </div>
+
+    <h3>CUDA's Synchronisation Toolkit</h3>
+    <div class="table-wrap">
+        <table>
+            <tr>
+                <th>Mechanism</th>
+                <th>Scope</th>
+                <th>Cost</th>
+            </tr>
+            <tr>
+                <td><code>__syncthreads()</code></td>
+                <td>All threads in a block</td>
+                <td>Low (hardware barrier)</td>
+            </tr>
+            <tr>
+                <td>Warp-level primitives</td>
+                <td>32 threads in a warp</td>
+                <td>Very low (single instruction)</td>
+            </tr>
+            <tr>
+                <td>Atomic operations</td>
+                <td>Global or shared memory</td>
+                <td>Medium (serialises at address)</td>
+            </tr>
+            <tr>
+                <td>Cooperative Groups</td>
+                <td>Flexible (warp to grid)</td>
+                <td>Varies by scope</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Key Insight</div>
+        <p>Synchronisation always has a cost. The art of CUDA programming is choosing the <strong>narrowest scope</strong> that guarantees correctness &mdash; warp-level if possible, block-level if needed, grid-level as a last resort.</p>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ SLIDE 02 — __syncthreads() ═══════════════════════════════ -->
+<section class="slide" id="slide-02">
+    <div class="slide-number">02</div>
+    <h2>__syncthreads() &mdash; Block-Level Barrier</h2>
+
+    <p><code>__syncthreads()</code> is a <strong>barrier</strong>: every thread in the block must reach this point before any thread is allowed to proceed past it. It also acts as a <strong>memory fence</strong> &mdash; all shared memory writes before the barrier are visible to all threads after it.</p>
+
+    <h3>How It Works</h3>
+    <div class="diagram-vertical">
+        <div style="display: flex; gap: 0.4rem; justify-content: center;">
+            <div class="diagram-box" style="font-size: 0.7rem;">T0: write smem[0]</div>
+            <div class="diagram-box" style="font-size: 0.7rem;">T1: write smem[1]</div>
+            <div class="diagram-box" style="font-size: 0.7rem;">T2: write smem[2]</div>
+            <div class="diagram-box" style="font-size: 0.7rem;">T3: write smem[3]</div>
+        </div>
+        <div class="diagram-arrow">&darr;</div>
+        <div class="diagram-box accent" style="width: 90%; max-width: 400px;">__syncthreads() &mdash; BARRIER</div>
+        <div class="diagram-arrow">&darr;</div>
+        <div style="display: flex; gap: 0.4rem; justify-content: center;">
+            <div class="diagram-box" style="font-size: 0.7rem;">T0: read smem[3]</div>
+            <div class="diagram-box" style="font-size: 0.7rem;">T1: read smem[2]</div>
+            <div class="diagram-box" style="font-size: 0.7rem;">T2: read smem[1]</div>
+            <div class="diagram-box" style="font-size: 0.7rem;">T3: read smem[0]</div>
+        </div>
+        <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent); margin-top: 0.3rem;">All writes guaranteed visible after barrier</div>
+    </div>
+
+    <h3>Classic Pattern: Shared Memory Tile Load</h3>
+    <div class="code-block">
+        <div class="code-header">shared_memory_pattern.cu</div>
+        <pre><code><span class="dir">__shared__</span> <span class="type">float</span> tile[BLOCK_SIZE];
+
+<span class="cm">// Phase 1: Each thread loads one element</span>
+tile[threadIdx.x] = input[blockIdx.x * blockDim.x + threadIdx.x];
+
+<span class="cm">// BARRIER: ensure all loads complete before any reads</span>
+<span class="fn">__syncthreads</span>();
+
+<span class="cm">// Phase 2: Now safe to read any element in the tile</span>
+<span class="type">float</span> left  = (threadIdx.x &gt; <span class="num">0</span>) ? tile[threadIdx.x - <span class="num">1</span>] : <span class="num">0.0f</span>;
+<span class="type">float</span> right = (threadIdx.x &lt; BLOCK_SIZE - <span class="num">1</span>) ? tile[threadIdx.x + <span class="num">1</span>] : <span class="num">0.0f</span>;
+output[idx] = <span class="num">0.25f</span> * left + <span class="num">0.5f</span> * tile[threadIdx.x] + <span class="num">0.25f</span> * right;</code></pre>
+    </div>
+
+    <h3>The Deadlock Danger: Conditional __syncthreads()</h3>
+    <p>If <code>__syncthreads()</code> appears inside a conditional branch, <strong>all threads in the block must still reach it</strong>. If some threads take the branch and others don't, the block <strong>deadlocks</strong> &mdash; threads that reached the barrier wait forever for threads that will never arrive.</p>
+
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel" style="border-left: 3px solid #ff7b72;">
+            <h4 style="color: #ff7b72;">WRONG &mdash; Deadlock</h4>
+            <div class="code-block" style="margin: 0.5rem 0;">
+                <pre><code><span class="kw">if</span> (threadIdx.x &lt; <span class="num">32</span>) {
+    smem[threadIdx.x] = data;
+    <span class="fn">__syncthreads</span>(); <span class="cm">// Threads 32+ never reach here!</span>
+}</code></pre>
+            </div>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>CORRECT</h4>
+            <div class="code-block" style="margin: 0.5rem 0;">
+                <pre><code><span class="kw">if</span> (threadIdx.x &lt; <span class="num">32</span>) {
+    smem[threadIdx.x] = data;
+}
+<span class="fn">__syncthreads</span>(); <span class="cm">// All threads reach this</span></code></pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Rule</div>
+        <p><code>__syncthreads()</code> must be reached by <strong>every thread in the block</strong>, or by <strong>no thread</strong>. Never place it inside an <code>if</code> that excludes some threads. Also note: it only synchronises within a single block &mdash; there is no built-in way to synchronise across blocks (until Cooperative Groups).</p>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ SLIDE 03 — Warp-Level Primitives ═══════════════════════════════ -->
+<section class="slide" id="slide-03">
+    <div class="slide-number">03</div>
+    <h2>Warp-Level Primitives</h2>
+
+    <p>Since all 32 threads in a warp execute in lockstep (SIMT), CUDA provides <strong>warp-level intrinsics</strong> that let threads communicate directly through registers &mdash; no shared memory needed, no barrier needed.</p>
+
+    <h3>The Mask Parameter</h3>
+    <p>All warp primitives take a <code>mask</code> parameter &mdash; a 32-bit integer where each bit indicates which threads participate. Use <code>0xFFFFFFFF</code> for all 32 threads, or a custom mask for a subset.</p>
+
+    <h3>Shuffle: __shfl_sync</h3>
+    <p>Directly read a register value from another thread in the warp. Four variants:</p>
+
+    <div class="table-wrap">
+        <table>
+            <tr>
+                <th>Intrinsic</th>
+                <th>Description</th>
+                <th>Use Case</th>
+            </tr>
+            <tr>
+                <td><code>__shfl_sync(mask, val, src)</code></td>
+                <td>Read <code>val</code> from lane <code>src</code></td>
+                <td>Broadcast a value to all lanes</td>
+            </tr>
+            <tr>
+                <td><code>__shfl_up_sync(mask, val, delta)</code></td>
+                <td>Read from lane <code>id - delta</code></td>
+                <td>Prefix sums (scan)</td>
+            </tr>
+            <tr>
+                <td><code>__shfl_down_sync(mask, val, delta)</code></td>
+                <td>Read from lane <code>id + delta</code></td>
+                <td>Reductions</td>
+            </tr>
+            <tr>
+                <td><code>__shfl_xor_sync(mask, val, mask)</code></td>
+                <td>Read from lane <code>id ^ mask</code></td>
+                <td>Butterfly reductions</td>
+            </tr>
+        </table>
+    </div>
+
+    <h3>Warp-Level Reduction (No Shared Memory!)</h3>
+    <div class="code-block">
+        <div class="code-header">warp_reduce.cu</div>
+        <pre><code><span class="dir">__device__</span> <span class="type">float</span> <span class="fn">warpReduceSum</span>(<span class="type">float</span> val) {
+    <span class="kw">for</span> (<span class="type">int</span> offset = <span class="num">16</span>; offset &gt; <span class="num">0</span>; offset &gt;&gt;= <span class="num">1</span>) {
+        val += <span class="fn">__shfl_down_sync</span>(<span class="num">0xFFFFFFFF</span>, val, offset);
+    }
+    <span class="kw">return</span> val;  <span class="cm">// Result valid in lane 0 only</span>
+}</code></pre>
+    </div>
+
+    <p>This completes a full 32-element reduction in <strong>5 instructions</strong>, entirely in registers:</p>
+
+    <div style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin: 1.5rem 0; overflow-x: auto;">
+        <div style="text-align: center; font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent); margin-bottom: 1rem;">__shfl_down_sync reduction across 8 lanes (simplified)</div>
+        <div class="tree-level">
+            <div class="tree-node active">L0</div>
+            <div class="tree-node active">L1</div>
+            <div class="tree-node active">L2</div>
+            <div class="tree-node active">L3</div>
+            <div class="tree-node active">L4</div>
+            <div class="tree-node active">L5</div>
+            <div class="tree-node active">L6</div>
+            <div class="tree-node active">L7</div>
+        </div>
+        <div class="tree-connector">offset = 4: L0+=L4 &nbsp; L1+=L5 &nbsp; L2+=L6 &nbsp; L3+=L7</div>
+        <div class="tree-level">
+            <div class="tree-node active">L0-4</div>
+            <div class="tree-node active">L1-5</div>
+            <div class="tree-node active">L2-6</div>
+            <div class="tree-node active">L3-7</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+        </div>
+        <div class="tree-connector">offset = 2: L0+=L2 &nbsp; L1+=L3</div>
+        <div class="tree-level">
+            <div class="tree-node active">L0-6</div>
+            <div class="tree-node active">L1-7</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+        </div>
+        <div class="tree-connector">offset = 1: L0+=L1</div>
+        <div class="tree-level">
+            <div class="tree-node result">SUM</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+        </div>
+    </div>
+
+    <h3>Ballot &amp; Predicate Intrinsics</h3>
+    <div class="table-wrap">
+        <table>
+            <tr>
+                <th>Intrinsic</th>
+                <th>Returns</th>
+                <th>Use Case</th>
+            </tr>
+            <tr>
+                <td><code>__ballot_sync(mask, predicate)</code></td>
+                <td>Bitmask of threads where predicate is true</td>
+                <td>Count matching threads, compact</td>
+            </tr>
+            <tr>
+                <td><code>__all_sync(mask, predicate)</code></td>
+                <td>1 if all threads' predicate is true</td>
+                <td>Early exit optimisation</td>
+            </tr>
+            <tr>
+                <td><code>__any_sync(mask, predicate)</code></td>
+                <td>1 if any thread's predicate is true</td>
+                <td>Detect if work remains</td>
+            </tr>
+            <tr>
+                <td><code>__popc(__ballot_sync(...))</code></td>
+                <td>Population count of ballot result</td>
+                <td>Count how many threads match</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Performance</div>
+        <p>Warp-level primitives are the <strong>fastest synchronisation mechanism</strong> in CUDA. Each compiles to a single hardware instruction. Always prefer shuffle-based reductions over shared memory when operating within a single warp.</p>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ SLIDE 04 — Atomic Operations ═══════════════════════════════ -->
+<section class="slide" id="slide-04">
+    <div class="slide-number">04</div>
+    <h2>Atomic Operations</h2>
+
+    <p>Atomic operations perform a <strong>read-modify-write</strong> as a single, indivisible operation. No other thread can see the intermediate state. They solve the data race problem from Slide 01 &mdash; but at a performance cost.</p>
+
+    <h3>Common Atomic Functions</h3>
+    <div class="table-wrap">
+        <table>
+            <tr>
+                <th>Function</th>
+                <th>Operation</th>
+                <th>Types</th>
+            </tr>
+            <tr>
+                <td><code>atomicAdd(&amp;addr, val)</code></td>
+                <td><code>*addr += val</code></td>
+                <td>int, unsigned, float, double*</td>
+            </tr>
+            <tr>
+                <td><code>atomicSub(&amp;addr, val)</code></td>
+                <td><code>*addr -= val</code></td>
+                <td>int, unsigned</td>
+            </tr>
+            <tr>
+                <td><code>atomicMax(&amp;addr, val)</code></td>
+                <td><code>*addr = max(*addr, val)</code></td>
+                <td>int, unsigned</td>
+            </tr>
+            <tr>
+                <td><code>atomicMin(&amp;addr, val)</code></td>
+                <td><code>*addr = min(*addr, val)</code></td>
+                <td>int, unsigned</td>
+            </tr>
+            <tr>
+                <td><code>atomicExch(&amp;addr, val)</code></td>
+                <td><code>*addr = val</code> (returns old)</td>
+                <td>int, unsigned, float</td>
+            </tr>
+            <tr>
+                <td><code>atomicCAS(&amp;addr, compare, val)</code></td>
+                <td>If <code>*addr == compare</code>, set to <code>val</code></td>
+                <td>int, unsigned, unsigned long long</td>
+            </tr>
+        </table>
+    </div>
+    <p style="font-size: 0.85rem;">* <code>atomicAdd</code> for <code>double</code> requires compute capability 6.0+</p>
+
+    <h3>Global vs Shared Memory Atomics</h3>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Global Memory Atomics</h4>
+            <ul>
+                <li>All blocks can atomically update the same address</li>
+                <li>High latency (~100s of cycles)</li>
+                <li>Contention: many threads hitting the same address serialises execution</li>
+            </ul>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Shared Memory Atomics</h4>
+            <ul>
+                <li>Only threads within the same block</li>
+                <li>Much lower latency (~few cycles)</li>
+                <li>Common pattern: accumulate in shared, then one atomic to global</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>atomicCAS &mdash; The Universal Building Block</h3>
+    <p><strong>Compare-And-Swap</strong> is the most powerful atomic: it can implement any atomic operation. Here's how to build an atomic double-precision add on older hardware:</p>
+
+    <div class="code-block">
+        <div class="code-header">atomicAdd_double_via_CAS.cu</div>
+        <pre><code><span class="dir">__device__</span> <span class="type">double</span> <span class="fn">atomicAddDouble</span>(<span class="type">double</span>* addr, <span class="type">double</span> val) {
+    <span class="type">unsigned long long</span>* addr_as_ull = (<span class="type">unsigned long long</span>*)addr;
+    <span class="type">unsigned long long</span> old = *addr_as_ull, assumed;
+    <span class="kw">do</span> {
+        assumed = old;
+        old = <span class="fn">atomicCAS</span>(addr_as_ull, assumed,
+            <span class="fn">__double_as_longlong</span>(<span class="fn">__longlong_as_double</span>(assumed) + val));
+    } <span class="kw">while</span> (assumed != old);
+    <span class="kw">return</span> <span class="fn">__longlong_as_double</span>(old);
+}</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Performance Tip</div>
+        <p>Atomics serialise at the address level. If 1000 threads all <code>atomicAdd</code> to the same global address, they execute one at a time. Solution: <strong>reduce locally first</strong> (within warp, then block), then perform a single atomic per block to global memory.</p>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ SLIDE 05 — Parallel Reduction ═══════════════════════════════ -->
+<section class="slide" id="slide-05">
+    <div class="slide-number">05</div>
+    <h2>Parallel Reduction &mdash; Step by Step</h2>
+
+    <p>Reduction is the canonical example for synchronisation: combine N values into one (sum, max, min, etc.). Let's build it from naive to optimal.</p>
+
+    <h3>Approach Comparison</h3>
+    <div class="diagram-grid cols-3">
+        <div class="diagram-panel" style="border-left: 3px solid #ff7b72;">
+            <h4 style="color: #ff7b72;">Sequential (CPU)</h4>
+            <p>O(N) steps, 1 thread. No parallelism at all.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Tree Reduction</h4>
+            <p>O(log N) steps, N/2 threads. Each step halves active threads.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Warp + Tree</h4>
+            <p>Tree in shared memory, then warp shuffle for final 32 elements. Fastest.</p>
+        </div>
+    </div>
+
+    <h3>Tree Reduction in Shared Memory</h3>
+    <p>Eight values reduced in 3 steps (log&#8322;8 = 3):</p>
+
+    <div style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin: 1.5rem 0; overflow-x: auto;">
+        <div style="text-align: center; font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent); margin-bottom: 1rem;">Tree Reduction: 8 values &rarr; 1 result</div>
+        <div class="tree-level">
+            <div class="tree-node active">3</div>
+            <div class="tree-node active">1</div>
+            <div class="tree-node active">7</div>
+            <div class="tree-node active">0</div>
+            <div class="tree-node active">4</div>
+            <div class="tree-node active">1</div>
+            <div class="tree-node active">6</div>
+            <div class="tree-node active">3</div>
+        </div>
+        <div class="tree-connector">Step 1: stride = 4 &mdash; add pairs separated by 4</div>
+        <div class="tree-level">
+            <div class="tree-node active">3+4=7</div>
+            <div class="tree-node active">1+1=2</div>
+            <div class="tree-node active">7+6=13</div>
+            <div class="tree-node active">0+3=3</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+        </div>
+        <div class="tree-connector">Step 2: stride = 2 &mdash; add pairs separated by 2</div>
+        <div class="tree-level">
+            <div class="tree-node active">7+13=20</div>
+            <div class="tree-node active">2+3=5</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+        </div>
+        <div class="tree-connector">Step 3: stride = 1 &mdash; final add</div>
+        <div class="tree-level">
+            <div class="tree-node result">25</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+            <div class="tree-node dim" style="opacity: 0.4;">-</div>
+        </div>
+        <div style="text-align: center; font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.5rem;">3 + 1 + 7 + 0 + 4 + 1 + 6 + 3 = 25 &#10003;</div>
+    </div>
+
+    <h3>Complete Parallel Reduction Program</h3>
+    <div class="code-block">
+        <div class="code-header">parallel_reduction.cu &mdash; Complete, compilable: nvcc -o reduce parallel_reduction.cu</div>
+        <pre><code><span class="dir">#include</span> <span class="str">&lt;cstdio&gt;</span>
+<span class="dir">#include</span> <span class="str">&lt;cstdlib&gt;</span>
+<span class="dir">#include</span> <span class="str">&lt;cuda_runtime.h&gt;</span>
+
+<span class="dir">#define</span> <span class="mac">BLOCK_SIZE</span> <span class="num">256</span>
+
+<span class="cm">// ── Warp-level reduction using shuffle ──</span>
+<span class="dir">__device__</span> <span class="type">float</span> <span class="fn">warpReduceSum</span>(<span class="type">float</span> val) {
+    <span class="kw">for</span> (<span class="type">int</span> offset = <span class="num">16</span>; offset &gt; <span class="num">0</span>; offset &gt;&gt;= <span class="num">1</span>)
+        val += <span class="fn">__shfl_down_sync</span>(<span class="num">0xFFFFFFFF</span>, val, offset);
+    <span class="kw">return</span> val;
+}
+
+<span class="cm">// ── Block-level reduction: shared memory tree + warp shuffle finish ──</span>
+<span class="dir">__device__</span> <span class="type">float</span> <span class="fn">blockReduceSum</span>(<span class="type">float</span> val) {
+    <span class="dir">__shared__</span> <span class="type">float</span> warp_sums[<span class="num">32</span>]; <span class="cm">// max 32 warps per block (1024/32)</span>
+
+    <span class="type">int</span> lane = threadIdx.x &amp; <span class="num">31</span>;       <span class="cm">// thread index within warp (0-31)</span>
+    <span class="type">int</span> wid  = threadIdx.x &gt;&gt; <span class="num">5</span>;       <span class="cm">// warp index within block</span>
+
+    <span class="cm">// Step 1: reduce within each warp</span>
+    val = <span class="fn">warpReduceSum</span>(val);
+
+    <span class="cm">// Step 2: lane 0 of each warp writes its result to shared memory</span>
+    <span class="kw">if</span> (lane == <span class="num">0</span>) warp_sums[wid] = val;
+    <span class="fn">__syncthreads</span>();
+
+    <span class="cm">// Step 3: first warp reduces the warp_sums</span>
+    <span class="type">int</span> num_warps = blockDim.x &gt;&gt; <span class="num">5</span>;
+    val = (threadIdx.x &lt; num_warps) ? warp_sums[threadIdx.x] : <span class="num">0.0f</span>;
+    <span class="kw">if</span> (wid == <span class="num">0</span>) val = <span class="fn">warpReduceSum</span>(val);
+
+    <span class="kw">return</span> val;
+}
+
+<span class="cm">// ── Kernel: each block reduces its portion, atomicAdd to global result ──</span>
+<span class="dir">__global__</span> <span class="kw">void</span> <span class="fn">reduceSum</span>(<span class="kw">const</span> <span class="type">float</span>* input, <span class="type">float</span>* output, <span class="type">int</span> N) {
+    <span class="type">float</span> sum = <span class="num">0.0f</span>;
+
+    <span class="cm">// Grid-stride loop: each thread accumulates multiple elements</span>
+    <span class="kw">for</span> (<span class="type">int</span> i = blockIdx.x * blockDim.x + threadIdx.x;
+         i &lt; N;
+         i += blockDim.x * gridDim.x) {
+        sum += input[i];
+    }
+
+    <span class="cm">// Reduce within block</span>
+    sum = <span class="fn">blockReduceSum</span>(sum);
+
+    <span class="cm">// Thread 0 of each block adds to global result</span>
+    <span class="kw">if</span> (threadIdx.x == <span class="num">0</span>)
+        <span class="fn">atomicAdd</span>(output, sum);
+}
+
+<span class="type">int</span> <span class="fn">main</span>() {
+    <span class="kw">const</span> <span class="type">int</span> N = <span class="num">1</span> &lt;&lt; <span class="num">20</span>;  <span class="cm">// 1M elements</span>
+    <span class="type">size_t</span> bytes = N * <span class="kw">sizeof</span>(<span class="type">float</span>);
+
+    <span class="cm">// Host allocation and initialisation</span>
+    <span class="type">float</span>* h_input = (<span class="type">float</span>*)<span class="fn">malloc</span>(bytes);
+    <span class="type">float</span> h_output = <span class="num">0.0f</span>;
+    <span class="type">float</span> expected = <span class="num">0.0f</span>;
+    <span class="kw">for</span> (<span class="type">int</span> i = <span class="num">0</span>; i &lt; N; i++) {
+        h_input[i] = <span class="num">1.0f</span>;  <span class="cm">// all ones: sum should be N</span>
+        expected += h_input[i];
+    }
+
+    <span class="cm">// Device allocation</span>
+    <span class="type">float</span> *d_input, *d_output;
+    <span class="fn">cudaMalloc</span>(&amp;d_input, bytes);
+    <span class="fn">cudaMalloc</span>(&amp;d_output, <span class="kw">sizeof</span>(<span class="type">float</span>));
+
+    <span class="cm">// Copy input and zero the output</span>
+    <span class="fn">cudaMemcpy</span>(d_input, h_input, bytes, cudaMemcpyHostToDevice);
+    <span class="fn">cudaMemset</span>(d_output, <span class="num">0</span>, <span class="kw">sizeof</span>(<span class="type">float</span>));
+
+    <span class="cm">// Launch: use enough blocks to keep the GPU busy</span>
+    <span class="type">int</span> numBlocks = (N + <span class="mac">BLOCK_SIZE</span> - <span class="num">1</span>) / <span class="mac">BLOCK_SIZE</span>;
+    <span class="kw">if</span> (numBlocks &gt; <span class="num">1024</span>) numBlocks = <span class="num">1024</span>;  <span class="cm">// cap for grid-stride loop</span>
+    <span class="fn">reduceSum</span>&lt;&lt;&lt;numBlocks, <span class="mac">BLOCK_SIZE</span>&gt;&gt;&gt;(d_input, d_output, N);
+
+    <span class="cm">// Copy result back</span>
+    <span class="fn">cudaMemcpy</span>(&amp;h_output, d_output, <span class="kw">sizeof</span>(<span class="type">float</span>), cudaMemcpyDeviceToHost);
+
+    <span class="fn">printf</span>(<span class="str">"Sum = %.0f (expected %.0f) — %s\n"</span>,
+           h_output, expected,
+           (<span class="fn">fabsf</span>(h_output - expected) &lt; <span class="num">1.0f</span>) ? <span class="str">"PASS"</span> : <span class="str">"FAIL"</span>);
+
+    <span class="cm">// Cleanup</span>
+    <span class="fn">cudaFree</span>(d_input);
+    <span class="fn">cudaFree</span>(d_output);
+    <span class="fn">free</span>(h_input);
+    <span class="kw">return</span> <span class="num">0</span>;
+}</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">How It All Fits Together</div>
+        <p><strong>Grid-stride loop</strong> &rarr; each thread accumulates a partial sum. <strong>Warp shuffle</strong> &rarr; reduces 32 partial sums within each warp. <strong>Shared memory + __syncthreads</strong> &rarr; reduces warp results within each block. <strong>atomicAdd</strong> &rarr; combines block results into a single global sum.</p>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ SLIDE 06 — Histogram Example ═══════════════════════════════ -->
+<section class="slide" id="slide-06">
+    <div class="slide-number">06</div>
+    <h2>Histogram Example</h2>
+
+    <p>Histograms are a classic use case for atomics: many threads categorise data into bins concurrently. The naive approach (global atomics for every element) is slow. The optimised approach uses <strong>shared memory per-block histograms</strong> merged into global memory at the end.</p>
+
+    <h3>Strategy: Two-Phase Histogram</h3>
+    <div class="diagram-flow">
+        <div class="diagram-box">Each thread reads data</div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box accent">atomicAdd to shared histogram</div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box">__syncthreads()</div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box accent">Merge: atomicAdd shared &rarr; global</div>
+    </div>
+
+    <div style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin: 1.5rem 0;">
+        <div style="text-align: center; font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent); margin-bottom: 1rem;">Per-Block Shared Histogram &rarr; Merge to Global</div>
+        <div style="display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem;">
+                <div class="diagram-box" style="font-size: 0.7rem; width: 120px;">Block 0 smem hist</div>
+                <div style="display: flex; gap: 2px;">
+                    <div class="tree-node active" style="width: 28px; height: 24px; font-size: 0.55rem;">12</div>
+                    <div class="tree-node active" style="width: 28px; height: 24px; font-size: 0.55rem;">8</div>
+                    <div class="tree-node active" style="width: 28px; height: 24px; font-size: 0.55rem;">15</div>
+                    <div class="tree-node active" style="width: 28px; height: 24px; font-size: 0.55rem;">9</div>
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem;">
+                <div class="diagram-box" style="font-size: 0.7rem; width: 120px;">Block 1 smem hist</div>
+                <div style="display: flex; gap: 2px;">
+                    <div class="tree-node active" style="width: 28px; height: 24px; font-size: 0.55rem;">10</div>
+                    <div class="tree-node active" style="width: 28px; height: 24px; font-size: 0.55rem;">14</div>
+                    <div class="tree-node active" style="width: 28px; height: 24px; font-size: 0.55rem;">7</div>
+                    <div class="tree-node active" style="width: 28px; height: 24px; font-size: 0.55rem;">11</div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center;">
+                <div class="diagram-arrow">&rarr;</div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem;">
+                <div class="diagram-box accent" style="font-size: 0.7rem; width: 120px;">Global histogram</div>
+                <div style="display: flex; gap: 2px;">
+                    <div class="tree-node result" style="width: 28px; height: 24px; font-size: 0.55rem;">22</div>
+                    <div class="tree-node result" style="width: 28px; height: 24px; font-size: 0.55rem;">22</div>
+                    <div class="tree-node result" style="width: 28px; height: 24px; font-size: 0.55rem;">22</div>
+                    <div class="tree-node result" style="width: 28px; height: 24px; font-size: 0.55rem;">20</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3>Complete Histogram Program</h3>
+    <div class="code-block">
+        <div class="code-header">histogram.cu &mdash; Complete, compilable: nvcc -o histogram histogram.cu</div>
+        <pre><code><span class="dir">#include</span> <span class="str">&lt;cstdio&gt;</span>
+<span class="dir">#include</span> <span class="str">&lt;cstdlib&gt;</span>
+<span class="dir">#include</span> <span class="str">&lt;cuda_runtime.h&gt;</span>
+
+<span class="dir">#define</span> <span class="mac">NUM_BINS</span>   <span class="num">256</span>
+<span class="dir">#define</span> <span class="mac">BLOCK_SIZE</span> <span class="num">256</span>
+
+<span class="cm">// ── Phase 1: per-block shared memory histogram ──</span>
+<span class="cm">// ── Phase 2: merge per-block histogram into global ──</span>
+<span class="dir">__global__</span> <span class="kw">void</span> <span class="fn">histogram</span>(<span class="kw">const</span> <span class="type">unsigned char</span>* data, <span class="type">int</span> N,
+                           <span class="type">unsigned int</span>* globalHist) {
+    <span class="cm">// Shared memory histogram for this block</span>
+    <span class="dir">__shared__</span> <span class="type">unsigned int</span> smemHist[<span class="mac">NUM_BINS</span>];
+
+    <span class="cm">// Cooperatively zero the shared histogram</span>
+    <span class="kw">for</span> (<span class="type">int</span> i = threadIdx.x; i &lt; <span class="mac">NUM_BINS</span>; i += blockDim.x)
+        smemHist[i] = <span class="num">0</span>;
+    <span class="fn">__syncthreads</span>();
+
+    <span class="cm">// Phase 1: each thread processes elements via grid-stride loop</span>
+    <span class="kw">for</span> (<span class="type">int</span> i = blockIdx.x * blockDim.x + threadIdx.x;
+         i &lt; N;
+         i += blockDim.x * gridDim.x) {
+        <span class="fn">atomicAdd</span>(&amp;smemHist[data[i]], <span class="num">1</span>);
+    }
+    <span class="fn">__syncthreads</span>();
+
+    <span class="cm">// Phase 2: merge shared histogram into global histogram</span>
+    <span class="kw">for</span> (<span class="type">int</span> i = threadIdx.x; i &lt; <span class="mac">NUM_BINS</span>; i += blockDim.x) {
+        <span class="kw">if</span> (smemHist[i] &gt; <span class="num">0</span>)
+            <span class="fn">atomicAdd</span>(&amp;globalHist[i], smemHist[i]);
+    }
+}
+
+<span class="type">int</span> <span class="fn">main</span>() {
+    <span class="kw">const</span> <span class="type">int</span> N = <span class="num">1</span> &lt;&lt; <span class="num">22</span>;  <span class="cm">// 4M bytes</span>
+    <span class="type">size_t</span> dataBytes = N * <span class="kw">sizeof</span>(<span class="type">unsigned char</span>);
+    <span class="type">size_t</span> histBytes = <span class="mac">NUM_BINS</span> * <span class="kw">sizeof</span>(<span class="type">unsigned int</span>);
+
+    <span class="cm">// Host allocations</span>
+    <span class="type">unsigned char</span>* h_data = (<span class="type">unsigned char</span>*)<span class="fn">malloc</span>(dataBytes);
+    <span class="type">unsigned int</span>* h_hist  = (<span class="type">unsigned int</span>*)<span class="fn">calloc</span>(<span class="mac">NUM_BINS</span>, <span class="kw">sizeof</span>(<span class="type">unsigned int</span>));
+    <span class="type">unsigned int</span>* h_ref   = (<span class="type">unsigned int</span>*)<span class="fn">calloc</span>(<span class="mac">NUM_BINS</span>, <span class="kw">sizeof</span>(<span class="type">unsigned int</span>));
+
+    <span class="cm">// Generate random data and compute CPU reference</span>
+    <span class="fn">srand</span>(<span class="num">42</span>);
+    <span class="kw">for</span> (<span class="type">int</span> i = <span class="num">0</span>; i &lt; N; i++) {
+        h_data[i] = (<span class="type">unsigned char</span>)(<span class="fn">rand</span>() % <span class="mac">NUM_BINS</span>);
+        h_ref[h_data[i]]++;
+    }
+
+    <span class="cm">// Device allocations</span>
+    <span class="type">unsigned char</span>* d_data;
+    <span class="type">unsigned int</span>*  d_hist;
+    <span class="fn">cudaMalloc</span>(&amp;d_data, dataBytes);
+    <span class="fn">cudaMalloc</span>(&amp;d_hist, histBytes);
+
+    <span class="fn">cudaMemcpy</span>(d_data, h_data, dataBytes, cudaMemcpyHostToDevice);
+    <span class="fn">cudaMemset</span>(d_hist, <span class="num">0</span>, histBytes);
+
+    <span class="cm">// Launch kernel</span>
+    <span class="type">int</span> numBlocks = (N + <span class="mac">BLOCK_SIZE</span> - <span class="num">1</span>) / <span class="mac">BLOCK_SIZE</span>;
+    <span class="kw">if</span> (numBlocks &gt; <span class="num">1024</span>) numBlocks = <span class="num">1024</span>;
+    <span class="fn">histogram</span>&lt;&lt;&lt;numBlocks, <span class="mac">BLOCK_SIZE</span>&gt;&gt;&gt;(d_data, N, d_hist);
+
+    <span class="cm">// Copy results back</span>
+    <span class="fn">cudaMemcpy</span>(h_hist, d_hist, histBytes, cudaMemcpyDeviceToHost);
+
+    <span class="cm">// Verify</span>
+    <span class="type">int</span> errors = <span class="num">0</span>;
+    <span class="kw">for</span> (<span class="type">int</span> i = <span class="num">0</span>; i &lt; <span class="mac">NUM_BINS</span>; i++) {
+        <span class="kw">if</span> (h_hist[i] != h_ref[i]) {
+            <span class="fn">printf</span>(<span class="str">"Mismatch at bin %d: GPU=%u CPU=%u\n"</span>, i, h_hist[i], h_ref[i]);
+            errors++;
+        }
+    }
+    <span class="fn">printf</span>(<span class="str">"Histogram: %d/%d bins correct — %s\n"</span>,
+           <span class="mac">NUM_BINS</span> - errors, <span class="mac">NUM_BINS</span>,
+           (errors == <span class="num">0</span>) ? <span class="str">"PASS"</span> : <span class="str">"FAIL"</span>);
+
+    <span class="cm">// Print first 10 bins</span>
+    <span class="fn">printf</span>(<span class="str">"First 10 bins: "</span>);
+    <span class="kw">for</span> (<span class="type">int</span> i = <span class="num">0</span>; i &lt; <span class="num">10</span>; i++)
+        <span class="fn">printf</span>(<span class="str">"[%d]=%u "</span>, i, h_hist[i]);
+    <span class="fn">printf</span>(<span class="str">"\n"</span>);
+
+    <span class="cm">// Cleanup</span>
+    <span class="fn">cudaFree</span>(d_data);
+    <span class="fn">cudaFree</span>(d_hist);
+    <span class="fn">free</span>(h_data);
+    <span class="fn">free</span>(h_hist);
+    <span class="fn">free</span>(h_ref);
+    <span class="kw">return</span> <span class="num">0</span>;
+}</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Why Shared Memory Histograms Win</div>
+        <p>With 1024 blocks, a naive global-only histogram has <strong>thousands of threads</strong> contending on each bin. The shared-memory approach reduces contention to at most <code>BLOCK_SIZE</code> threads per bin, and the merge phase only has <code>numBlocks</code> atomic operations per bin on global memory.</p>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ SLIDE 07 — Cooperative Groups ═══════════════════════════════ -->
+<section class="slide" id="slide-07">
+    <div class="slide-number">07</div>
+    <h2>Cooperative Groups (CUDA 9+)</h2>
+
+    <p>Before CUDA 9, synchronisation was limited to <code>__syncthreads()</code> (block-level) and atomics. <strong>Cooperative Groups</strong> provides a flexible, composable API for synchronising at any granularity &mdash; from sub-warp tiles to entire grids.</p>
+
+    <h3>Key Group Types</h3>
+    <div class="table-wrap">
+        <table>
+            <tr>
+                <th>Group Type</th>
+                <th>Scope</th>
+                <th>How to Create</th>
+            </tr>
+            <tr>
+                <td><code>thread_block</code></td>
+                <td>All threads in a block</td>
+                <td><code>this_thread_block()</code></td>
+            </tr>
+            <tr>
+                <td><code>tiled_partition&lt;N&gt;</code></td>
+                <td>Sub-warp tile (N = 1, 2, 4, 8, 16, 32)</td>
+                <td><code>tiled_partition&lt;16&gt;(block)</code></td>
+            </tr>
+            <tr>
+                <td><code>coalesced_group</code></td>
+                <td>Active threads only (after divergence)</td>
+                <td><code>coalesced_threads()</code></td>
+            </tr>
+            <tr>
+                <td><code>grid_group</code></td>
+                <td>All threads in the grid</td>
+                <td><code>this_grid()</code></td>
+            </tr>
+        </table>
+    </div>
+
+    <h3>Example: Tiled Partition Reduction</h3>
+    <div class="code-block">
+        <div class="code-header">cooperative_groups_example.cu</div>
+        <pre><code><span class="dir">#include</span> <span class="str">&lt;cooperative_groups.h&gt;</span>
+<span class="kw">namespace</span> cg = cooperative_groups;
+
+<span class="dir">__device__</span> <span class="type">float</span> <span class="fn">tileReduceSum</span>(<span class="type">float</span> val, cg::thread_block_tile&lt;<span class="num">32</span>&gt; tile) {
+    <span class="kw">for</span> (<span class="type">int</span> offset = tile.<span class="fn">size</span>() / <span class="num">2</span>; offset &gt; <span class="num">0</span>; offset /= <span class="num">2</span>)
+        val += tile.<span class="fn">shfl_down</span>(val, offset);
+    <span class="kw">return</span> val;  <span class="cm">// valid in thread_rank() == 0</span>
+}
+
+<span class="dir">__global__</span> <span class="kw">void</span> <span class="fn">kernel</span>(<span class="type">float</span>* data) {
+    <span class="type">auto</span> block = cg::<span class="fn">this_thread_block</span>();
+    <span class="type">auto</span> tile  = cg::<span class="fn">tiled_partition</span>&lt;<span class="num">32</span>&gt;(block);
+
+    <span class="type">float</span> val = data[block.<span class="fn">thread_rank</span>()];
+    <span class="type">float</span> sum = <span class="fn">tileReduceSum</span>(val, tile);
+
+    <span class="kw">if</span> (tile.<span class="fn">thread_rank</span>() == <span class="num">0</span>)
+        data[tile.<span class="fn">meta_group_rank</span>()] = sum;
+}</code></pre>
+    </div>
+
+    <h3>Grid-Level Synchronisation</h3>
+    <p>For the first time, <strong>all blocks in a grid</strong> can synchronise without launching a new kernel:</p>
+
+    <div class="code-block">
+        <div class="code-header">grid_sync.cu</div>
+        <pre><code><span class="dir">#include</span> <span class="str">&lt;cooperative_groups.h&gt;</span>
+<span class="kw">namespace</span> cg = cooperative_groups;
+
+<span class="dir">__global__</span> <span class="kw">void</span> <span class="fn">multiPhaseKernel</span>(<span class="type">float</span>* data, <span class="type">int</span> N) {
+    <span class="type">auto</span> grid = cg::<span class="fn">this_grid</span>();
+
+    <span class="cm">// Phase 1: all blocks process data</span>
+    <span class="type">int</span> idx = grid.<span class="fn">thread_rank</span>();
+    <span class="kw">if</span> (idx &lt; N) data[idx] *= <span class="num">2.0f</span>;
+
+    grid.<span class="fn">sync</span>();  <span class="cm">// All blocks must reach here before continuing</span>
+
+    <span class="cm">// Phase 2: all blocks can safely read Phase 1 results</span>
+    <span class="kw">if</span> (idx &lt; N &amp;&amp; idx &gt; <span class="num">0</span>)
+        data[idx] += data[idx - <span class="num">1</span>];
+}
+
+<span class="cm">// Must launch with cudaLaunchCooperativeKernel:</span>
+<span class="cm">// void* args[] = { &amp;d_data, &amp;N };</span>
+<span class="cm">// cudaLaunchCooperativeKernel((void*)multiPhaseKernel,</span>
+<span class="cm">//     numBlocks, blockSize, args);</span></code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Limitation</div>
+        <p>Grid-level sync requires that <strong>all blocks fit on the GPU simultaneously</strong> (the GPU cannot context-switch blocks). Use <code>cudaOccupancyMaxActiveBlocksPerMultiprocessor</code> to determine the maximum safe grid size. If you exceed it, the kernel will deadlock.</p>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ SLIDE 08 — Summary ═══════════════════════════════ -->
+<section class="slide" id="slide-08">
+    <div class="slide-number">08</div>
+    <h2>Summary &amp; Next Steps</h2>
+
+    <h3>What We Covered</h3>
+    <ul>
+        <li><strong>Data races</strong> &mdash; concurrent unsynchronised access produces undefined results; synchronisation is essential for correctness.</li>
+        <li><strong>__syncthreads()</strong> &mdash; block-level barrier with memory fence; must be reached by all threads in the block.</li>
+        <li><strong>Warp-level primitives</strong> &mdash; shuffle, ballot, and predicate intrinsics for register-to-register communication within a warp.</li>
+        <li><strong>Atomic operations</strong> &mdash; read-modify-write on global/shared memory; essential for cross-block coordination but costly under contention.</li>
+        <li><strong>Parallel reduction</strong> &mdash; the three-tier approach: grid-stride accumulation, warp shuffle, shared memory tree, then atomicAdd to global.</li>
+        <li><strong>Histograms</strong> &mdash; per-block shared memory histograms dramatically reduce global atomic contention.</li>
+        <li><strong>Cooperative Groups</strong> &mdash; flexible synchronisation from sub-warp tiles to full grid sync (CUDA 9+).</li>
+    </ul>
+
+    <h3>Key Takeaways</h3>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Minimise Sync Scope</h4>
+            <p>Warp shuffle &gt; shared memory barrier &gt; atomics &gt; grid sync. Use the narrowest scope that guarantees correctness.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Reduce Locally First</h4>
+            <p>Always combine values at the warp and block level before touching global memory. This is the single most important optimisation pattern.</p>
+        </div>
+    </div>
+
+    <h3>Next Tutorial</h3>
+    <div class="callout">
+        <div class="callout-label">Up Next &mdash; Tutorial 07</div>
+        <p><strong><a href="https://brendanjameslynskey.github.io/CUDA_07_Profiling/" style="color: var(--accent); text-decoration: none;">Profiling &amp; Performance Analysis</a></strong> &mdash; use Nsight Systems, Nsight Compute, and nvprof to identify bottlenecks, measure occupancy, and systematically optimise your CUDA kernels.</p>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════ Footer ════════════════════════════════════ -->
+<footer class="footer">
+    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLMs#cuda-programming">CUDA Programming Series</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary);">Synchronisation &amp; Atomics &mdash; Tutorial 06 of 10</p>
+</footer>
+
+<script>
+    // Smooth scroll for table-of-contents links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    });
+
+    // Subtle fade-in animation for slides on scroll
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.slide').forEach(slide => {
+        slide.style.opacity = '0';
+        slide.style.transform = 'translateY(30px)';
+        slide.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(slide);
+    });
+</script>
+
+</body>
+</html>
